@@ -37,11 +37,3 @@ jobs:
         with:
           commit_message: Update notified URLs list
           file_pattern: notified_urls.txt
-
-      # --- NEW STEP TO UPLOAD THE SAVED HTML FILES ---
-      - name: Upload Page Source Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: page-sources
-          path: "*.html"
-      # ---------------------------------------------
