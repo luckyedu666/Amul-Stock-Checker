@@ -4,6 +4,7 @@ import time
 import os
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys # NEW: To simulate pressing "Enter"
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
@@ -15,8 +16,8 @@ PRODUCT_URLS = [
     "https://shop.amul.com/en/product/amul-high-protein-plain-lassi-200-ml-or-pack-of-30",
     "https://shop.amul.com/en/product/amul-high-protein-rose-lassi-200-ml-or-pack-of-30"
 ]
-IN_STOCK_KEYWORD = "Product Information" # Set back to the real keyword for production
-DELIVERY_PINCODE = "560015" # Change this to your local pincode if you wish
+IN_STOCK_KEYWORD = "Product Information"
+DELIVERY_PINCODE = "560015" # Your pincode
 STATE_FILE = "notified_urls.txt"
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
@@ -52,7 +53,7 @@ def send_telegram_notification(product_url):
     except requests.exceptions.RequestException as e:
         print(f"❌ Failed to send Telegram notification: {e}")
 
-# --- FINAL, WORKING check_stock FUNCTION ---
+# --- FINAL, DATA-DRIVEN check_stock FUNCTION ---
 def check_stock(product_url):
     product_name = product_url.split('/')[-1]
     print(f"Checking: {product_name}")
@@ -61,28 +62,22 @@ def check_stock(product_url):
         driver.get(product_url)
         
         try:
-            print("  Waiting for pincode iframe to appear...")
+            print("  Waiting for pincode input box (id='search')...")
             wait = WebDriverWait(driver, 10)
             
-            # Step 1: Wait for the iframe itself and switch to it
-            wait.until(EC.frame_to_be_available_and_switch_to_it((By.TAG_NAME, "iframe")))
-            print("  Switched to pincode iframe.")
-
-            # Step 2: Now look for the pincode input INSIDE the iframe
-            pincode_input = wait.until(EC.visibility_of_element_located((By.ID, "delivery_pincode")))
+            # Step 1: Wait for the input box using its correct ID
+            pincode_input = wait.until(EC.visibility_of_element_located((By.ID, "search")))
             print("  Pincode box found. Entering pincode...")
-            pincode_input.send_keys(DELIVERY_PINCODE)
             
-            apply_button = driver.find_element(By.XPATH, "//button[contains(text(),'Apply')]")
-            apply_button.click()
-            print(f"  Clicked 'Apply' for pincode {DELIVERY_PINCODE}.")
-
-            # Step 3: Switch back to the main page content
-            driver.switch_to.default_content()
-            time.sleep(5) # Wait for main page to update
+            # Step 2: Type the pincode AND simulate pressing the "Enter" key
+            pincode_input.send_keys(DELIVERY_PINCODE + Keys.RETURN)
+            print(f"  Entered pincode {DELIVERY_PINCODE} and pressed Enter. Waiting for page to reload...")
+            
+            # Wait a moment for the page to process the pincode
+            time.sleep(5) 
             
         except TimeoutException:
-            print("  Pincode iframe did not appear. Assuming it's already set.")
+            print("  Pincode box did not appear. Assuming it's already set.")
 
         page_source = driver.page_source
         soup = BeautifulSoup(page_source, "html.parser")
