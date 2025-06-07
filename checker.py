@@ -9,7 +9,7 @@ PRODUCT_URLS = [
     "https://shop.amul.com/en/product/amul-high-protein-plain-lassi-200-ml-or-pack-of-30",
     "https://shop.amul.com/en/product/amul-high-protein-rose-lassi-200-ml-or-pack-of-30"
 ]
-IN_STOCK_KEYWORD = "Add to Cart"
+IN_STOCK_KEYWORD = "Product Information"
 STATE_FILE = "notified_urls.txt"
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
