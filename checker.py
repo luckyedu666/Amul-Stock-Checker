@@ -4,7 +4,7 @@ import time
 import os
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys # NEW: To simulate pressing "Enter"
+from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
@@ -16,7 +16,7 @@ PRODUCT_URLS = [
     "https://shop.amul.com/en/product/amul-high-protein-plain-lassi-200-ml-or-pack-of-30",
     "https://shop.amul.com/en/product/amul-high-protein-rose-lassi-200-ml-or-pack-of-30"
 ]
-IN_STOCK_KEYWORD = "Product Information"
+IN_STOCK_KEYWORD = "Product Information" # This is set for our test
 DELIVERY_PINCODE = "560015" # Your pincode
 STATE_FILE = "notified_urls.txt"
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
@@ -40,27 +40,38 @@ def get_notified_urls():
 def add_url_to_notified_list(url):
     with open(STATE_FILE, 'a') as f: f.write(url + '\n')
 
+# --- FIXED TELEGRAM NOTIFICATION FUNCTION ---
 def send_telegram_notification(product_url):
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         print("ERROR: Telegram secrets are not set."); return
-    message = f"🎉 **IN STOCK!** 🎉\n\nThe product is now available!\n\nBuy it here: {product_url}"
+    
+    # Message is now plain text
+    message = f"IN STOCK!\n\nThe product is now available!\n\nBuy it here: {product_url}"
+    
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    payload = {"chat_id": TELEGRAM_CHAT_ID, "text": message, "parse_mode": "Markdown"}
+    
+    # The "parse_mode" line has been removed to fix the 400 Bad Request error
+    payload = {
+        "chat_id": TELEGRAM_CHAT_ID,
+        "text": message
+    }
+    
     try:
         response = requests.post(url, json=payload)
         response.raise_for_status()
         print(f"✅ Successfully sent Telegram notification for {product_url}")
     except requests.exceptions.RequestException as e:
         print(f"❌ Failed to send Telegram notification: {e}")
+        if e.response:
+             print(f"Error details: {e.response.text}")
 
-# MODIFIED FOR A GUARANTEED TEST
+# --- MODIFIED CHECK_STOCK FUNCTION FOR TESTING ---
 def check_stock(product_url):
     product_name = product_url.split('/')[-1]
     print(f"Checking: {product_name}")
     driver = setup_driver()
     try:
         driver.get(product_url)
-
         try:
             print("  Waiting for pincode input box (id='search')...")
             wait = WebDriverWait(driver, 10)
@@ -69,7 +80,6 @@ def check_stock(product_url):
             pincode_input.send_keys(DELIVERY_PINCODE + Keys.RETURN)
             print(f"  Entered pincode {DELIVERY_PINCODE} and pressed Enter. Waiting for page to reload...")
             time.sleep(5) 
-
         except TimeoutException:
             print("  Pincode box did not appear. Assuming it's already set.")
 
