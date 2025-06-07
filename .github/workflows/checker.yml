@@ -3,7 +3,8 @@ name: Stock Checker
 on:
   workflow_dispatch:
   schedule:
-    - cron: '*/5 * * * *'
+  # This schedule runs the job every 5 minutes
+  - cron: '*/5 * * * *'
 
 jobs:
   build:
