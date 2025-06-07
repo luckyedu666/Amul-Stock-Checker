@@ -53,13 +53,52 @@ def send_telegram_notification(product_url):
     except requests.exceptions.RequestException as e:
         print(f"❌ Failed to send Telegram notification: {e}")
 
-# --- FINAL, ROBUST check_stock FUNCTION ---
+# MODIFIED: This function now saves a screenshot and HTML if the pincode box isn't found
 def check_stock(product_url):
     product_name = product_url.split('/')[-1]
     print(f"Checking: {product_name}")
     driver = setup_driver()
     try:
         driver.get(product_url)
+        
+        try:
+            print("  Waiting 10 seconds for pincode input box to appear...")
+            wait = WebDriverWait(driver, 10)
+            pincode_input = wait.until(EC.visibility_of_element_located((By.ID, "delivery_pincode")))
+            
+            print("  Pincode box found. Entering pincode...")
+            pincode_input.send_keys(DELIVERY_PINCODE)
+            
+            apply_button = driver.find_element(By.XPATH, "//button[contains(text(),'Apply')]")
+            apply_button.click()
+            print(f"  Clicked 'Apply' for pincode {DELIVERY_PINCODE}. Waiting for page to reload...")
+            time.sleep(5)
+            
+        except TimeoutException:
+            # THIS IS THE CRITICAL DIAGNOSTIC PART
+            print("  Pincode box did not appear! Saving evidence...")
+            # Take a picture of what the browser sees
+            driver.save_screenshot(f"{product_name}_screenshot.png")
+            # Save the HTML of the page it's stuck on
+            with open(f"{product_name}_source.html", "w", encoding="utf-8") as f:
+                f.write(driver.page_source)
+            print("  Saved screenshot and HTML source for debugging.")
+            # -------------------------------------
+
+        page_source = driver.page_source
+        soup = BeautifulSoup(page_source, "html.parser")
+        
+        if IN_STOCK_KEYWORD in soup.get_text():
+            print(f"  >>> IN STOCK! - {product_name}")
+            return True
+        else:
+            print(f"  Product is OUT of stock.")
+            return False
+    except Exception as e:
+        print(f"  An error occurred during the automation process: {e}")
+        return False
+    finally:
+        driver.quit()
         
         # --- NEW ROBUST PINCODE LOGIC ---
         try:
