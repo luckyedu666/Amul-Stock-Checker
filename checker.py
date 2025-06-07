@@ -16,7 +16,7 @@ PRODUCT_URLS = [
     "https://shop.amul.com/en/product/amul-high-protein-plain-lassi-200-ml-or-pack-of-30",
     "https://shop.amul.com/en/product/amul-high-protein-rose-lassi-200-ml-or-pack-of-30"
 ]
-IN_STOCK_KEYWORD = "Product Information" # This is set for our test
+IN_STOCK_KEYWORD = "Add to Cart"
 DELIVERY_PINCODE = "560015" # Your pincode
 STATE_FILE = "notified_urls.txt"
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
@@ -40,22 +40,12 @@ def get_notified_urls():
 def add_url_to_notified_list(url):
     with open(STATE_FILE, 'a') as f: f.write(url + '\n')
 
-# --- FIXED TELEGRAM NOTIFICATION FUNCTION ---
 def send_telegram_notification(product_url):
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         print("ERROR: Telegram secrets are not set."); return
-    
-    # Message is now plain text
     message = f"IN STOCK!\n\nThe product is now available!\n\nBuy it here: {product_url}"
-    
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    
-    # The "parse_mode" line has been removed to fix the 400 Bad Request error
-    payload = {
-        "chat_id": TELEGRAM_CHAT_ID,
-        "text": message
-    }
-    
+    payload = {"chat_id": TELEGRAM_CHAT_ID, "text": message}
     try:
         response = requests.post(url, json=payload)
         response.raise_for_status()
@@ -65,7 +55,7 @@ def send_telegram_notification(product_url):
         if e.response:
              print(f"Error details: {e.response.text}")
 
-# --- MODIFIED CHECK_STOCK FUNCTION FOR TESTING ---
+# --- FINAL, PRODUCTION check_stock FUNCTION ---
 def check_stock(product_url):
     product_name = product_url.split('/')[-1]
     print(f"Checking: {product_name}")
@@ -79,40 +69,17 @@ def check_stock(product_url):
             print("  Pincode box found. Entering pincode...")
             pincode_input.send_keys(DELIVERY_PINCODE + Keys.RETURN)
             print(f"  Entered pincode {DELIVERY_PINCODE} and pressed Enter. Waiting for page to reload...")
-            time.sleep(5) 
+            time.sleep(5)
         except TimeoutException:
             print("  Pincode box did not appear. Assuming it's already set.")
 
-        # This condition is temporarily changed to ALWAYS be true for our test
-        if True: # TEMPORARY CHANGE FOR TESTING NOTIFICATIONS
-            print(f"  >>> TEST SUCCESS! Pretending IN STOCK! - {product_name}")
+        page_source = driver.page_source
+        soup = BeautifulSoup(page_source, "html.parser")
+        
+        if IN_STOCK_KEYWORD in soup.get_text():
+            print(f"  >>> IN STOCK! - {product_name}")
             return True
         else:
-            # This part will be skipped during the test
             print(f"  Product is OUT of stock for pincode {DELIVERY_PINCODE}.")
             return False
-    except Exception as e:
-        print(f"  An error occurred during the automation process: {e}")
-        return False
-    finally:
-        driver.quit()
-
-# --- MAIN SCRIPT ---
-if __name__ == "__main__":
-    print("--- Starting Final Stock Checker ---")
-    notified_urls = get_notified_urls()
-    newly_found_urls = []
-    for url in PRODUCT_URLS:
-        if url in notified_urls:
-            print(f"Skipping already notified item: {url.split('/')[-1]}")
-            continue
-        if check_stock(url):
-            send_telegram_notification(url)
-            newly_found_urls.append(url)
-    if newly_found_urls:
-        for url in newly_found_urls:
-            add_url_to_notified_list(url)
-        print("\nUpdated the notified list.")
-    else:
-        print("\nNo new products in stock for this cycle.")
-    print("--- Stock Check Complete ---")
+    except Exception
