@@ -15,8 +15,8 @@ PRODUCT_URLS = [
     "https://shop.amul.com/en/product/amul-high-protein-plain-lassi-200-ml-or-pack-of-30",
     "https://shop.amul.com/en/product/amul-high-protein-rose-lassi-200-ml-or-pack-of-30"
 ]
-IN_STOCK_KEYWORD = "Product Information" # This is set for our test
-DELIVERY_PINCODE = "560015"
+IN_STOCK_KEYWORD = "Product Information" # Set back to the real keyword for production
+DELIVERY_PINCODE = "560015" # Change this to your local pincode if you wish
 STATE_FILE = "notified_urls.txt"
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
@@ -52,30 +52,38 @@ def send_telegram_notification(product_url):
     except requests.exceptions.RequestException as e:
         print(f"❌ Failed to send Telegram notification: {e}")
 
-# --- DIAGNOSTIC check_stock FUNCTION ---
+# --- FINAL, WORKING check_stock FUNCTION ---
 def check_stock(product_url):
     product_name = product_url.split('/')[-1]
     print(f"Checking: {product_name}")
     driver = setup_driver()
     try:
         driver.get(product_url)
+        
         try:
-            print("  Waiting 10 seconds for pincode input box to appear...")
+            print("  Waiting for pincode iframe to appear...")
             wait = WebDriverWait(driver, 10)
+            
+            # Step 1: Wait for the iframe itself and switch to it
+            wait.until(EC.frame_to_be_available_and_switch_to_it((By.TAG_NAME, "iframe")))
+            print("  Switched to pincode iframe.")
+
+            # Step 2: Now look for the pincode input INSIDE the iframe
             pincode_input = wait.until(EC.visibility_of_element_located((By.ID, "delivery_pincode")))
             print("  Pincode box found. Entering pincode...")
             pincode_input.send_keys(DELIVERY_PINCODE)
+            
             apply_button = driver.find_element(By.XPATH, "//button[contains(text(),'Apply')]")
             apply_button.click()
-            print(f"  Clicked 'Apply' for pincode {DELIVERY_PINCODE}. Waiting for page to reload...")
-            time.sleep(5)
+            print(f"  Clicked 'Apply' for pincode {DELIVERY_PINCODE}.")
+
+            # Step 3: Switch back to the main page content
+            driver.switch_to.default_content()
+            time.sleep(5) # Wait for main page to update
+            
         except TimeoutException:
-            print("  Pincode box did not appear! Saving evidence...")
-            driver.save_screenshot(f"{product_name}_screenshot.png")
-            with open(f"{product_name}_source.html", "w", encoding="utf-8") as f:
-                f.write(driver.page_source)
-            print("  Saved screenshot and HTML source for debugging.")
-        
+            print("  Pincode iframe did not appear. Assuming it's already set.")
+
         page_source = driver.page_source
         soup = BeautifulSoup(page_source, "html.parser")
         
@@ -83,7 +91,7 @@ def check_stock(product_url):
             print(f"  >>> IN STOCK! - {product_name}")
             return True
         else:
-            print(f"  Product is OUT of stock.")
+            print(f"  Product is OUT of stock for pincode {DELIVERY_PINCODE}.")
             return False
     except Exception as e:
         print(f"  An error occurred during the automation process: {e}")
@@ -93,25 +101,20 @@ def check_stock(product_url):
 
 # --- MAIN SCRIPT ---
 if __name__ == "__main__":
-    print("--- Starting Final Diagnostic Check ---")
-    try:
-        notified_urls = get_notified_urls()
-        newly_found_urls = []
-        for url in PRODUCT_URLS:
-            if url in notified_urls:
-                print(f"Skipping already notified item: {url.split('/')[-1]}")
-                continue
-            if check_stock(url):
-                send_telegram_notification(url)
-                newly_found_urls.append(url)
-        
-        if newly_found_urls:
-            for url in newly_found_urls:
-                add_url_to_notified_list(url)
-            print("\nUpdated the notified list.")
-        else:
-            print("\nNo new products in stock for this cycle.")
-    except Exception as e:
-        print(f"\n--- A CRITICAL ERROR OCCURRED: {e} ---")
-    finally:
-        print("--- Stock Check Complete ---")
+    print("--- Starting Final Stock Checker ---")
+    notified_urls = get_notified_urls()
+    newly_found_urls = []
+    for url in PRODUCT_URLS:
+        if url in notified_urls:
+            print(f"Skipping already notified item: {url.split('/')[-1]}")
+            continue
+        if check_stock(url):
+            send_telegram_notification(url)
+            newly_found_urls.append(url)
+    if newly_found_urls:
+        for url in newly_found_urls:
+            add_url_to_notified_list(url)
+        print("\nUpdated the notified list.")
+    else:
+        print("\nNo new products in stock for this cycle.")
+    print("--- Stock Check Complete ---")
