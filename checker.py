@@ -82,4 +82,29 @@ def check_stock(product_url):
         else:
             print(f"  Product is OUT of stock for pincode {DELIVERY_PINCODE}.")
             return False
-    except Exception
+    # THIS IS THE LINE THAT WAS MISSING A COLON
+    except Exception as e:
+        print(f"  An error occurred during the automation process: {e}")
+        return False
+    finally:
+        driver.quit()
+
+# --- MAIN SCRIPT ---
+if __name__ == "__main__":
+    print("--- Starting Stock Checker ---")
+    notified_urls = get_notified_urls()
+    newly_found_urls = []
+    for url in PRODUCT_URLS:
+        if url in notified_urls:
+            print(f"Skipping already notified item: {url.split('/')[-1]}")
+            continue
+        if check_stock(url):
+            send_telegram_notification(url)
+            newly_found_urls.append(url)
+    if newly_found_urls:
+        for url in newly_found_urls:
+            add_url_to_notified_list(url)
+        print("\nUpdated the notified list.")
+    else:
+        print("\nNo new products in stock for this cycle.")
+    print("--- Stock Check Complete ---")
