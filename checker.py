@@ -53,39 +53,32 @@ def send_telegram_notification(product_url):
     except requests.exceptions.RequestException as e:
         print(f"❌ Failed to send Telegram notification: {e}")
 
-# --- FINAL, DATA-DRIVEN check_stock FUNCTION ---
+# MODIFIED FOR A GUARANTEED TEST
 def check_stock(product_url):
     product_name = product_url.split('/')[-1]
     print(f"Checking: {product_name}")
     driver = setup_driver()
     try:
         driver.get(product_url)
-        
+
         try:
             print("  Waiting for pincode input box (id='search')...")
             wait = WebDriverWait(driver, 10)
-            
-            # Step 1: Wait for the input box using its correct ID
             pincode_input = wait.until(EC.visibility_of_element_located((By.ID, "search")))
             print("  Pincode box found. Entering pincode...")
-            
-            # Step 2: Type the pincode AND simulate pressing the "Enter" key
             pincode_input.send_keys(DELIVERY_PINCODE + Keys.RETURN)
             print(f"  Entered pincode {DELIVERY_PINCODE} and pressed Enter. Waiting for page to reload...")
-            
-            # Wait a moment for the page to process the pincode
             time.sleep(5) 
-            
+
         except TimeoutException:
             print("  Pincode box did not appear. Assuming it's already set.")
 
-        page_source = driver.page_source
-        soup = BeautifulSoup(page_source, "html.parser")
-        
-        if IN_STOCK_KEYWORD in soup.get_text():
-            print(f"  >>> IN STOCK! - {product_name}")
+        # This condition is temporarily changed to ALWAYS be true for our test
+        if True: # TEMPORARY CHANGE FOR TESTING NOTIFICATIONS
+            print(f"  >>> TEST SUCCESS! Pretending IN STOCK! - {product_name}")
             return True
         else:
+            # This part will be skipped during the test
             print(f"  Product is OUT of stock for pincode {DELIVERY_PINCODE}.")
             return False
     except Exception as e:
