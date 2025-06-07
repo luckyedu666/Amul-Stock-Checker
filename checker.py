@@ -13,7 +13,7 @@ PRODUCT_URLS = [
     "https://shop.amul.com/en/product/amul-high-protein-rose-lassi-200-ml-or-pack-of-30"
 ]
 # We are now looking for the real keyword
-IN_STOCK_KEYWORD = "Add to Cart" 
+IN_STOCK_KEYWORD = "Product Information" 
 # You can change this to any valid Indian pincode. 380001 is for Ahmedabad.
 DELIVERY_PINCODE = "560015"
 STATE_FILE = "notified_urls.txt"
