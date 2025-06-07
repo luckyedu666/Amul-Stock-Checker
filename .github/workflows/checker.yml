@@ -37,3 +37,14 @@ jobs:
         with:
           commit_message: Update notified URLs list
           file_pattern: notified_urls.txt
+
+      # --- RE-ADD THIS STEP TO UPLOAD OUR EVIDENCE ---
+      - name: Upload Diagnostic Artifacts
+        if: always() # This makes it run even if previous steps fail
+        uses: actions/upload-artifact@v4
+        with:
+          name: diagnostic-files
+          path: |
+            *.html
+            *.png
+      # ---------------------------------------------
