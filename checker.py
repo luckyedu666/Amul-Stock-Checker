@@ -50,27 +50,35 @@ def send_telegram_notification(product_url):
 
 # --- NEW check_stock FUNCTION USING SELENIUM ---
 def check_stock(product_url):
-    """Checks a single product using a full browser to render JavaScript."""
-    print(f"Checking: {product_url.split('/')[-1]}")
+    """Checks a single product and saves the HTML for debugging."""
+    product_name = product_url.split('/')[-1]
+    print(f"Checking: {product_name}")
     driver = setup_driver()
     try:
         driver.get(product_url)
-        # Wait for a few seconds for all JavaScript to load
-        time.sleep(5) 
+        print("  Waiting for page to load...")
+        time.sleep(8)  # Increased wait time to 8 seconds just in case
         
         # Now get the page source AFTER JavaScript has run
         page_source = driver.page_source
+        
+        # --- NEW DIAGNOSTIC STEP ---
+        # Save the HTML the browser sees to a file
+        with open(f"{product_name}.html", "w", encoding="utf-8") as f:
+            f.write(page_source)
+        print(f"  Saved page content to {product_name}.html")
+        # ---------------------------
+        
         soup = BeautifulSoup(page_source, "html.parser")
         
         if IN_STOCK_KEYWORD in soup.get_text():
-            print(f"  >>> IN STOCK! - {product_url.split('/')[-1]}")
+            print(f"  >>> IN STOCK! - {product_name}")
             return True
         return False
     except Exception as e:
         print(f"  An error occurred fetching the page with Selenium: {e}")
         return False
     finally:
-        # IMPORTANT: Always close the browser
         driver.quit()
 
 # --- MAIN SCRIPT ---
