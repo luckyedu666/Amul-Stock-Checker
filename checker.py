@@ -17,8 +17,7 @@ PRODUCT_URLS = [
     "https://shop.amul.com/en/product/amul-high-protein-rose-lassi-200-ml-or-pack-of-30",
     "https://shop.amul.com/en/product/amul-kool-protein-milkshake-or-kesar-180-ml-or-pack-of-30"
 ]
-IN_STOCK_KEYWORD = "Add to Cart"
-DELIVERY_PINCODE = "560015" # Your pincode
+DELIVERY_PINCODE = "560015"
 STATE_FILE = "notified_urls.txt"
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
@@ -56,51 +55,41 @@ def send_telegram_notification(product_url):
         if e.response:
              print(f"Error details: {e.response.text}")
 
-# --- check_stock FUNCTION WITH PRECISE CLICK LOGIC ---
+# --- THE FINAL, DATA-DRIVEN check_stock FUNCTION ---
 def check_stock(product_url):
     product_name = product_url.split('/')[-1]
     print(f"Checking: {product_name}")
     driver = setup_driver()
     try:
         driver.get(product_url)
-        
         try:
-            print("  Waiting for pincode input box (id='search')...")
+            print("  Waiting for pincode input box...")
             wait = WebDriverWait(driver, 10)
             pincode_input = wait.until(EC.visibility_of_element_located((By.ID, "search")))
-            print("  Pincode box found.")
-
+            print("  Pincode box found. Entering pincode...")
             pincode_input.send_keys(DELIVERY_PINCODE)
-            print(f"  Typed pincode {DELIVERY_PINCODE}.")
-            time.sleep(3) # Wait for suggestion box to render
+            time.sleep(3) 
 
-            print("  Waiting for the clickable suggestion link...")
-            # This XPath is hyper-specific to find the clickable link with the pincode text inside it
+            print("  Waiting for pincode suggestion...")
             suggestion_xpath = f"//a[.//p[text()='{DELIVERY_PINCODE}']]"
             suggestion_button = wait.until(EC.element_to_be_clickable((By.XPATH, suggestion_xpath)))
-            
-            print("  Precise suggestion found. Clicking it...")
             suggestion_button.click()
-            
-            print("  Pincode submitted successfully. Waiting for page to reload...")
-            time.sleep(5) 
+            print("  Pincode submitted. Waiting for page to reload...")
+            time.sleep(5)
             
         except TimeoutException:
-            # If this fails, our diagnostic tools will activate.
-            print("  Pincode interaction failed. Saving evidence...")
-            driver.save_screenshot(f"{product_name}_error_screenshot.png")
-            with open(f"{product_name}_error_source.html", "w", encoding="utf-8") as f:
-                f.write(driver.page_source)
-            print("  Evidence saved. Assuming out of stock for this run.")
-            return False
+            print("  Pincode interaction was not needed or failed.")
 
         page_source = driver.page_source
         soup = BeautifulSoup(page_source, "html.parser")
         
-        add_to_cart_button = soup.find('button', class_='AddToCart')
+        # --- NEW, EVIDENCE-BASED LOGIC ---
+        # Find the link with the 'add-to-cart' class
+        add_to_cart_link = soup.select_one("a.add-to-cart")
         
-        if add_to_cart_button:
-            print(f"  >>> IN STOCK! - Found 'AddToCart' button.")
+        # Check if the link exists AND if it does NOT have the 'disabled' class
+        if add_to_cart_link and 'disabled' not in add_to_cart_link.get('class', []):
+            print(f"  >>> IN STOCK! - Found active 'add-to-cart' link.")
             return True
         else:
             print(f"  Product is OUT of stock for pincode {DELIVERY_PINCODE}.")
