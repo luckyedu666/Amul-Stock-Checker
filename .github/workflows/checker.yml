@@ -24,14 +24,25 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           
-      - name: Run the diagnostic script
+      - name: Run the stock checker
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python checker.py
           
+      - name: Commit and push if changed
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: Update notified URLs list
+          file_pattern: notified_urls.txt
+
+      # --- THIS STEP IS NOW CORRECTLY RE-ENABLED ---
       - name: Upload Diagnostic Artifacts
-        if: always()
+        if: always() # This ensures it runs even if the Python script has an error
         uses: actions/upload-artifact@v4
         with:
           name: diagnostic-files
           path: |
             *.html
             *.png
+      # ---------------------------------------------
