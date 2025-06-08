@@ -56,7 +56,7 @@ def send_telegram_notification(product_url):
         if e.response:
              print(f"Error details: {e.response.text}")
 
-# --- UPDATED check_stock FUNCTION with HYPER-SPECIFIC CLICK ---
+# --- THE FINAL, EVIDENCE-BASED check_stock FUNCTION ---
 def check_stock(product_url):
     product_name = product_url.split('/')[-1]
     print(f"Checking: {product_name}")
@@ -65,39 +65,37 @@ def check_stock(product_url):
         driver.get(product_url)
         
         try:
-            print("  Waiting for pincode input box (id='search')...")
-            wait = WebDriverWait(driver, 10)
-            pincode_input = wait.until(EC.visibility_of_element_located((By.ID, "search")))
+            # This outer wait is for the modal background to appear, ensuring the pop-up is active
+            WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "locationWidgetModal")))
+            
+            print("  Pincode modal appeared. Looking for input box...")
+            pincode_input = driver.find_element(By.ID, "search")
             print("  Pincode box found.")
 
             pincode_input.send_keys(DELIVERY_PINCODE)
             print(f"  Typed pincode {DELIVERY_PINCODE}.")
-            time.sleep(2)
+            # Wait for the suggestion box with the text to appear
+            time.sleep(3) 
 
-            print("  Waiting for the clickable suggestion to appear...")
-            # This new selector is hyper-specific based on your description.
-            # It looks for a div containing "Showing result for", and THEN finds the clickable link with your pincode inside it.
-            suggestion_xpath = f"//div[contains(text(), 'Showing result for')]/following-sibling::div//a[contains(., '{DELIVERY_PINCODE}')]"
-            suggestion_button = wait.until(EC.element_to_be_clickable((By.XPATH, suggestion_xpath)))
+            print("  Looking for the clickable suggestion link...")
+            # This XPath is now hyper-specific based on the HTML you provided.
+            # It finds a link <a> that has a paragraph <p> inside it with the exact pincode text.
+            suggestion_xpath = f"//a[.//p[text()='{DELIVERY_PINCODE}']]"
+            suggestion_button = WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.XPATH, suggestion_xpath)))
             
-            print("  Precise suggestion found. Clicking it...")
+            print("  Exact suggestion found. Clicking it...")
             suggestion_button.click()
             
             print("  Pincode submitted successfully. Waiting for page to reload...")
-            time.sleep(5) 
+            time.sleep(5)
             
         except TimeoutException:
-            # If this fails, our diagnostic tools will activate.
-            print("  Pincode interaction failed. Saving evidence...")
-            driver.save_screenshot(f"{product_name}_error_screenshot.png")
-            with open(f"{product_name}_error_source.html", "w", encoding="utf-8") as f:
-                f.write(driver.page_source)
-            print("  Evidence saved. Assuming out of stock for this run.")
-            return False
+            print("  Pincode interaction failed or was not necessary.")
 
         page_source = driver.page_source
         soup = BeautifulSoup(page_source, "html.parser")
         
+        # We look for the button with the unique class `AddToCart`
         add_to_cart_button = soup.find('button', class_='AddToCart')
         
         if add_to_cart_button:
