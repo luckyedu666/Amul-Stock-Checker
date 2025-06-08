@@ -56,7 +56,7 @@ def send_telegram_notification(product_url):
         if e.response:
              print(f"Error details: {e.response.text}")
 
-# --- FINAL, WORKING check_stock FUNCTION ---
+# --- UPDATED check_stock FUNCTION with HYPER-SPECIFIC CLICK ---
 def check_stock(product_url):
     product_name = product_url.split('/')[-1]
     print(f"Checking: {product_name}")
@@ -70,30 +70,34 @@ def check_stock(product_url):
             pincode_input = wait.until(EC.visibility_of_element_located((By.ID, "search")))
             print("  Pincode box found.")
 
-            # Step 1: Type the pincode slowly to trigger the suggestion
             pincode_input.send_keys(DELIVERY_PINCODE)
-            print(f"  Entered pincode {DELIVERY_PINCODE}.")
-            time.sleep(2) # Wait for suggestion to appear
+            print(f"  Typed pincode {DELIVERY_PINCODE}.")
+            time.sleep(2)
 
-            # Step 2: Wait for the suggestion with the matching pincode to be clickable
-            print("  Waiting for pincode suggestion to appear...")
-            suggestion_xpath = f"//a[.//span[text()='{DELIVERY_PINCODE}']]"
+            print("  Waiting for the clickable suggestion to appear...")
+            # This new selector is hyper-specific based on your description.
+            # It looks for a div containing "Showing result for", and THEN finds the clickable link with your pincode inside it.
+            suggestion_xpath = f"//div[contains(text(), 'Showing result for')]/following-sibling::div//a[contains(., '{DELIVERY_PINCODE}')]"
             suggestion_button = wait.until(EC.element_to_be_clickable((By.XPATH, suggestion_xpath)))
             
-            # Step 3: Click the suggestion
-            print("  Suggestion found. Clicking it...")
+            print("  Precise suggestion found. Clicking it...")
             suggestion_button.click()
             
-            print("  Pincode submitted. Waiting for page to reload...")
-            time.sleep(5) # Wait for page to reload fully
+            print("  Pincode submitted successfully. Waiting for page to reload...")
+            time.sleep(5) 
             
         except TimeoutException:
-            print("  Pincode box/suggestion did not appear. Assuming pincode is already set.")
+            # If this fails, our diagnostic tools will activate.
+            print("  Pincode interaction failed. Saving evidence...")
+            driver.save_screenshot(f"{product_name}_error_screenshot.png")
+            with open(f"{product_name}_error_source.html", "w", encoding="utf-8") as f:
+                f.write(driver.page_source)
+            print("  Evidence saved. Assuming out of stock for this run.")
+            return False
 
         page_source = driver.page_source
         soup = BeautifulSoup(page_source, "html.parser")
         
-        # Look for the specific "Add to Cart" button element
         add_to_cart_button = soup.find('button', class_='AddToCart')
         
         if add_to_cart_button:
