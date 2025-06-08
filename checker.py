@@ -43,10 +43,8 @@ def add_url_to_notified_list(url):
 def send_telegram_notification(product_url):
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         print("ERROR: Telegram secrets are not set."); return
-    # Message is plain text to ensure delivery
     message = f"IN STOCK!\n\nThe product is now available!\n\nBuy it here: {product_url}"
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    # Payload does not use Markdown
     payload = {"chat_id": TELEGRAM_CHAT_ID, "text": message}
     try:
         response = requests.post(url, json=payload)
@@ -73,7 +71,6 @@ def check_stock(product_url):
             print(f"  Entered pincode {DELIVERY_PINCODE} and pressed Enter. Waiting for page to reload...")
             time.sleep(5)
         except TimeoutException:
-            # This happens if the pincode is already set from a previous check. It's safe to continue.
             print("  Pincode box did not appear. Assuming it's already set.")
 
         page_source = driver.page_source
@@ -84,3 +81,31 @@ def check_stock(product_url):
             return True
         else:
             print(f"  Product is OUT of stock for pincode {DELIVERY_PINCODE}.")
+            return False
+            
+    except Exception as e:
+        print(f"  An error occurred during the automation process: {e}")
+        return False
+    finally:
+        # Ensures the browser always closes to save resources
+        driver.quit()
+
+# --- MAIN SCRIPT ---
+if __name__ == "__main__":
+    print("--- Starting Stock Checker ---")
+    notified_urls = get_notified_urls()
+    newly_found_urls = []
+    for url in PRODUCT_URLS:
+        if url in notified_urls:
+            print(f"Skipping already notified item: {url.split('/')[-1]}")
+            continue
+        if check_stock(url):
+            send_telegram_notification(url)
+            newly_found_urls.append(url)
+    if newly_found_urls:
+        for url in newly_found_urls:
+            add_url_to_notified_list(url)
+        print("\nUpdated the notified list.")
+    else:
+        print("\nNo new products in stock for this cycle.")
+    print("--- Stock Check Complete ---")
