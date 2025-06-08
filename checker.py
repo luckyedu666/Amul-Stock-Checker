@@ -15,8 +15,9 @@ PRODUCT_URLS = [
     "https://shop.amul.com/en/product/amul-high-protein-buttermilk-200-ml-or-pack-of-30",
     "https://shop.amul.com/en/product/amul-high-protein-plain-lassi-200-ml-or-pack-of-30",
     "https://shop.amul.com/en/product/amul-high-protein-rose-lassi-200-ml-or-pack-of-30",
-    "https://shop.amul.com/en/product/amul-kool-protein-milkshake-or-kesar-180-ml-or-pack-of-30"
+    "https://shop.amul.com/en/product/amul-kool-protein-milkshake-or-kesar-180-ml-or-pack-of-30" # The in-stock item for our test
 ]
+# NOTE: The IN_STOCK_KEYWORD variable is no longer used, but we'll leave it for context.
 IN_STOCK_KEYWORD = "Add to Cart"
 DELIVERY_PINCODE = "560015" # Your pincode
 STATE_FILE = "notified_urls.txt"
@@ -56,7 +57,7 @@ def send_telegram_notification(product_url):
         if e.response:
              print(f"Error details: {e.response.text}")
 
-# --- FINAL, PRODUCTION check_stock FUNCTION ---
+# --- ROBUST check_stock FUNCTION ---
 def check_stock(product_url):
     product_name = product_url.split('/')[-1]
     print(f"Checking: {product_name}")
@@ -77,10 +78,16 @@ def check_stock(product_url):
         page_source = driver.page_source
         soup = BeautifulSoup(page_source, "html.parser")
         
-        if IN_STOCK_KEYWORD in soup.get_text():
-            print(f"  >>> IN STOCK! - {product_name}")
+        # --- NEW, MORE PRECISE LOGIC ---
+        # Instead of searching all text, we look for a specific button by its class name.
+        add_to_cart_button = soup.find('button', class_='AddToCart')
+        
+        if add_to_cart_button:
+            # If the button with this class exists, the item is in stock.
+            print(f"  >>> IN STOCK! - Found 'AddToCart' button.")
             return True
         else:
+            # If the button does not exist, it's out of stock.
             print(f"  Product is OUT of stock for pincode {DELIVERY_PINCODE}.")
             return False
             
