@@ -1,3 +1,5 @@
+import requests
+from bs4 import BeautifulSoup
 import time
 import os
 from selenium import webdriver
@@ -10,10 +12,17 @@ from selenium.webdriver.chrome.options import Options
 
 # --- CONFIGURATION ---
 PRODUCT_URLS = [
-    # For this test, let's ONLY check the product you know is in stock
+    "https://shop.amul.com/en/product/amul-high-protein-buttermilk-200-ml-or-pack-of-30",
+    "https://shop.amul.com/en/product/amul-high-protein-plain-lassi-200-ml-or-pack-of-30",
+    "https://shop.amul.com/en/product/amul-high-protein-rose-lassi-200-ml-or-pack-of-30",
     "https://shop.amul.com/en/product/amul-kool-protein-milkshake-or-kesar-180-ml-or-pack-of-30"
 ]
+IN_STOCK_KEYWORD = "Add to Cart"
 DELIVERY_PINCODE = "560015" # Your pincode
+STATE_FILE = "notified_urls.txt"
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
+TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
+HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"}
 
 # --- SELENIUM BROWSER SETUP ---
 def setup_driver():
@@ -24,42 +33,98 @@ def setup_driver():
     driver = webdriver.Chrome(options=chrome_options)
     return driver
 
-# --- DIAGNOSTIC SCRIPT ---
-if __name__ == "__main__":
-    print("--- Starting Diagnostic Capture ---")
-    
-    for url in PRODUCT_URLS:
-        product_name = url.split('/')[-1]
-        print(f"Diagnosing: {product_name}")
-        driver = setup_driver()
+# --- HELPER FUNCTIONS ---
+def get_notified_urls():
+    if not os.path.exists(STATE_FILE): return []
+    with open(STATE_FILE, 'r') as f: return [line.strip() for line in f.readlines()]
+
+def add_url_to_notified_list(url):
+    with open(STATE_FILE, 'a') as f: f.write(url + '\n')
+
+def send_telegram_notification(product_url):
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+        print("ERROR: Telegram secrets are not set."); return
+    message = f"IN STOCK!\n\nThe product is now available!\n\nBuy it here: {product_url}"
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    payload = {"chat_id": TELEGRAM_CHAT_ID, "text": message}
+    try:
+        response = requests.post(url, json=payload)
+        response.raise_for_status()
+        print(f"✅ Successfully sent Telegram notification for {product_url}")
+    except requests.exceptions.RequestException as e:
+        print(f"❌ Failed to send Telegram notification: {e}")
+        if e.response:
+             print(f"Error details: {e.response.text}")
+
+# --- FINAL, WORKING check_stock FUNCTION ---
+def check_stock(product_url):
+    product_name = product_url.split('/')[-1]
+    print(f"Checking: {product_name}")
+    driver = setup_driver()
+    try:
+        driver.get(product_url)
+        
         try:
-            driver.get(url)
-            try:
-                print("  Waiting 10 seconds for pincode input box (id='search')...")
-                wait = WebDriverWait(driver, 10)
-                pincode_input = wait.until(EC.visibility_of_element_located((By.ID, "search")))
-                print("  Pincode box found. Entering pincode...")
-                pincode_input.send_keys(DELIVERY_PINCODE + Keys.RETURN)
-                print(f"  Entered pincode {DELIVERY_PINCODE} and pressed Enter.")
-                
-            except TimeoutException:
-                print("  Pincode box did not appear. Assuming it's already set.")
+            print("  Waiting for pincode input box (id='search')...")
+            wait = WebDriverWait(driver, 10)
+            pincode_input = wait.until(EC.visibility_of_element_located((By.ID, "search")))
+            print("  Pincode box found.")
 
-            # Wait a generous amount of time for the final page to load
-            print("  Waiting 10 seconds for page to fully render...")
-            time.sleep(10)
+            # Step 1: Type the pincode slowly to trigger the suggestion
+            pincode_input.send_keys(DELIVERY_PINCODE)
+            print(f"  Entered pincode {DELIVERY_PINCODE}.")
+            time.sleep(2) # Wait for suggestion to appear
 
-            # --- THE EVIDENCE CAPTURE ---
-            print("  Capturing final page state...")
-            driver.save_screenshot(f"{product_name}_final_screenshot.png")
-            with open(f"{product_name}_final_page.html", "w", encoding="utf-8") as f:
-                f.write(driver.page_source)
-            print("  Screenshot and HTML saved.")
-            # ---------------------------
-
-        except Exception as e:
-            print(f"  An error occurred during the automation process: {e}")
-        finally:
-            driver.quit()
+            # Step 2: Wait for the suggestion with the matching pincode to be clickable
+            print("  Waiting for pincode suggestion to appear...")
+            suggestion_xpath = f"//a[.//span[text()='{DELIVERY_PINCODE}']]"
+            suggestion_button = wait.until(EC.element_to_be_clickable((By.XPATH, suggestion_xpath)))
             
-    print("--- Diagnostic Capture Complete ---")
+            # Step 3: Click the suggestion
+            print("  Suggestion found. Clicking it...")
+            suggestion_button.click()
+            
+            print("  Pincode submitted. Waiting for page to reload...")
+            time.sleep(5) # Wait for page to reload fully
+            
+        except TimeoutException:
+            print("  Pincode box/suggestion did not appear. Assuming pincode is already set.")
+
+        page_source = driver.page_source
+        soup = BeautifulSoup(page_source, "html.parser")
+        
+        # Look for the specific "Add to Cart" button element
+        add_to_cart_button = soup.find('button', class_='AddToCart')
+        
+        if add_to_cart_button:
+            print(f"  >>> IN STOCK! - Found 'AddToCart' button.")
+            return True
+        else:
+            print(f"  Product is OUT of stock for pincode {DELIVERY_PINCODE}.")
+            return False
+            
+    except Exception as e:
+        print(f"  An error occurred during the automation process: {e}")
+        return False
+    finally:
+        driver.quit()
+
+# --- MAIN SCRIPT ---
+if __name__ == "__main__":
+    print("--- Starting Stock Checker ---")
+    notified_urls = get_notified_urls()
+    newly_found_urls = []
+    for url in PRODUCT_URLS:
+        if url in notified_urls:
+            print(f"Skipping already notified item: {url.split('/')[-1]}")
+            continue
+        if check_stock(url):
+            send_telegram_notification(url)
+            newly_found_urls.append(url)
+    if newly_found_urls:
+        for url in newly_found_urls:
+            add_url_to_notified_list(url)
+        print("\nUpdated the notified list.")
+    else:
+        print("\nNo new products in stock for this cycle.")
+    print("--- Stock Check Complete ---")
