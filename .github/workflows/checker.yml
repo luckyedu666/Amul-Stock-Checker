@@ -3,7 +3,7 @@ name: Stock Checker
 on:
   workflow_dispatch:
   schedule:
-    - cron: '*/7 * * * *'
+    - cron: '*/6 * * * *'
 
 jobs:
   build:
