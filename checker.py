@@ -14,7 +14,8 @@ from selenium.webdriver.chrome.options import Options
 PRODUCT_URLS = [
     "https://shop.amul.com/en/product/amul-high-protein-buttermilk-200-ml-or-pack-of-30",
     "https://shop.amul.com/en/product/amul-high-protein-plain-lassi-200-ml-or-pack-of-30",
-    "https://shop.amul.com/en/product/amul-high-protein-rose-lassi-200-ml-or-pack-of-30"
+    "https://shop.amul.com/en/product/amul-high-protein-rose-lassi-200-ml-or-pack-of-30",
+    "https://shop.amul.com/en/product/amul-kool-protein-milkshake-or-kesar-180-ml-or-pack-of-30"
 ]
 IN_STOCK_KEYWORD = "Add to Cart"
 DELIVERY_PINCODE = "560015" # Your pincode
