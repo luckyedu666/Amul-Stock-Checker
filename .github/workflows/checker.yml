@@ -1,15 +1,14 @@
 name: Stock Checker
 
 on:
-  workflow_dispatch:
-  schedule:
-    - cron: '*/6 * * * *'
+  workflow_dispatch: # The workflow is now only triggered manually or by API
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
+      # ... the rest of the file remains exactly the same ...
       - name: Check out repository code
         uses: actions/checkout@v4
 
@@ -25,13 +24,13 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          
+
       - name: Run the stock checker
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python checker.py
-          
+
       - name: Commit and push if changed
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
