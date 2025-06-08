@@ -7,6 +7,11 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    # --- THIS NEW BLOCK GRANTS THE REQUIRED PERMISSIONS ---
+    permissions:
+      contents: write
+    # ----------------------------------------------------
+
     steps:
       - name: Check out repository code
         uses: actions/checkout@v4
@@ -35,14 +40,3 @@ jobs:
         with:
           commit_message: Update notified URLs list
           file_pattern: notified_urls.txt
-
-      # --- THIS STEP IS NOW CORRECTLY RE-ENABLED ---
-      - name: Upload Diagnostic Artifacts
-        if: always() # This ensures it runs even if the Python script has an error
-        uses: actions/upload-artifact@v4
-        with:
-          name: diagnostic-files
-          path: |
-            *.html
-            *.png
-      # ---------------------------------------------
